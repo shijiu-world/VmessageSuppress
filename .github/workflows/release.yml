@@ -21,11 +21,11 @@ jobs:
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # --release 17，但 paper-api 是 class 65，必须用 JDK 21+ 编译
       - name: 准备 JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -41,7 +41,7 @@ jobs:
           ls -l dist
 
       - name: 上传构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: VmessageSuppress
           path: dist/*.jar
