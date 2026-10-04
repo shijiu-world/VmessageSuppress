@@ -1,0 +1,28 @@
+# 构建产物（本项目不用 Maven，是 javac 直接编；out/ 是中间目录，target/ 放最终 jar）
+target/
+out/
+.buildtmp/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# 构建/运行产物
+*.jar
+*.class
+logs/
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 本地私有文件（不要外传）
+*.local
+local.properties

@@ -1,0 +1,6 @@
+name: VmessageSuppress
+version: 1.0.0
+main: cn.shijiu.vmessagesuppress.VmessageSuppress
+api-version: 1.21
+author: 拾玖世界
+description: 子服配套插件 - 把被插件取消的聊天（商店输入数量、菜单输入）告诉 Vmessage，避免跨服泄露
