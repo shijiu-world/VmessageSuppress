@@ -6,8 +6,8 @@
   在这里跑 mvn 会失败。build.sh 是 javac + jar 直编，不依赖联网。
 
   两边产出的都是 release 17 编译的 class，唯一区别是文件名由 build.sh 硬编码、
-  由 Maven 走 <finalName>。版本号改的时候记得 pom.xml 和 src/main/resources/plugin.yml
-  一起改。
+  由 Maven 走 <finalName>。版本号改的时候记得 pom.xml、src/main/resources/plugin.yml
+  和 build.sh 里硬编码的 jar 名一起改。
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -16,7 +16,7 @@
 
     <groupId>cn.shijiu</groupId>
     <artifactId>vmessagesuppress</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>VmessageSuppress</name>
