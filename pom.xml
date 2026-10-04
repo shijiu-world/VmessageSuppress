@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ⚠️ 这个 pom 只用于 GitHub Actions（.github/workflows/release.yml）打 release。
+
+  本机继续用 ./build.sh：本机 Maven 是离线的（~/.m2 里没有 paper-api 之外的构建插件），
+  在这里跑 mvn 会失败。build.sh 是 javac + jar 直编，不依赖联网。
+
+  两边产出的都是 release 17 编译的 class，唯一区别是文件名由 build.sh 硬编码、
+  由 Maven 走 <finalName>。版本号改的时候记得 pom.xml 和 src/main/resources/plugin.yml
+  一起改。
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>cn.shijiu</groupId>
+    <artifactId>vmessagesuppress</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>VmessageSuppress</name>
+    <description>Vmessage 的子服配套插件：把被子服插件取消的聊天回传给代理，避免跨服泄露</description>
+
+    <properties>
+        <!-- release 17：class 61，1.17+ 的服务端都能加载 -->
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <finalName>VmessageSuppress-${project.version}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <release>${java.version}</release>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <repositories>
+        <repository>
+            <id>papermc-repo</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- provided：adventure / jetbrains 注解由它传递进来，编译期够用，不打进产物。
+             新版 io.papermc.paper.event.player.AsyncChatEvent 也在这份 API 里。 -->
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+</project>
