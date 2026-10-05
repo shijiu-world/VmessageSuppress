@@ -47,6 +47,7 @@ public final class VmessageSuppress extends JavaPlugin {
         saveDefaultConfig();
         getServer().getMessenger().registerOutgoingPluginChannel(this, CHANNEL);
         getServer().getPluginManager().registerEvents(new LegacyListener(), this);
+        getServer().getPluginManager().registerEvents(new QuitListener(), this);
         // 有没有新版聊天事件，决定了兼容模式。Absent = 纯 Spigot/CraftBukkit，只听旧的。
         boolean modern = false;
         try {
@@ -163,6 +164,14 @@ public final class VmessageSuppress extends JavaPlugin {
         @EventHandler(priority = EventPriority.MONITOR)
         public void onEnd(final AsyncPlayerChatEvent e) {
             end(e.getPlayer(), e.isCancelled(), e.getMessage(), "旧事件");
+        }
+    }
+
+    /** 玩家下线就把他的记录拿掉 —— 不然聊过天的人会在这张表里越攒越多。 */
+    private final class QuitListener implements Listener {
+        @EventHandler
+        public void onQuit(final org.bukkit.event.player.PlayerQuitEvent e) {
+            states.remove(e.getPlayer().getUniqueId());
         }
     }
 
