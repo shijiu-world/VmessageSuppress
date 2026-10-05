@@ -20,7 +20,7 @@
 
 ## 安装
 
-1. `VmessageSuppress-1.0.0.jar` 丢进**每个子服**的 `plugins/`
+1. `VmessageSuppress-1.1.1.jar` 丢进**每个子服**的 `plugins/`
 2. 重启子服（子服端没有 reload 命令）
 3. 代理端 Vmessage 的 `config.toml` 里确认 `Message.await-cancel-signal = true`
 
@@ -69,7 +69,7 @@ debug: false
 SERVER_JAR=D:/game/Server/killer/paper-1.21.4-138.jar ./build.sh
 ```
 
-产物：`target/VmessageSuppress-1.0.0.jar`（`--release 17`，兼容 1.17+ 服务端）。
+产物：`target/VmessageSuppress-1.1.1.jar`（`--release 17`，兼容 1.17+ 服务端）。
 
 手工编译等价命令：
 
@@ -77,7 +77,7 @@ SERVER_JAR=D:/game/Server/killer/paper-1.21.4-138.jar ./build.sh
 javac -encoding UTF-8 --release 17 -cp <服务端 API jar> -d out \
     src/main/java/cn/shijiu/vmessagesuppress/VmessageSuppress.java
 cp src/main/resources/plugin.yml src/main/resources/config.yml out/
-jar cf target/VmessageSuppress-1.0.0.jar -C out .
+jar cf target/VmessageSuppress-1.1.1.jar -C out .
 ```
 
 > 为什么不用 Maven：只有一个类、只依赖 Bukkit API，引入 Maven 反而要联网拉插件。
