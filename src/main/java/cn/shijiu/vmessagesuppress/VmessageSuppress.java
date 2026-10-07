@@ -9,6 +9,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * Skript / 新插件大多取消的是新事件，而新事件往往在旧事件跑完之后才轮到 ——
  * 只监听旧事件时 {@code isCancelled()} 恒为 false，信号永远发不出去（"别的服照样看得到"）。
  * 保险起见两条都挂：谁发现被取消，谁负责通知；同一条聊天只通知一次。
+ *
+ * <p>「只通知一次」靠 {@link State#signalled} 去重，而它能不能生效取决于另一件事：
+ * 两条管线各会跑一次 {@link #begin}，<b>第二条绝不能另起一份记录</b> —— 那会把第一条刚打上的
+ * 标记冲掉，同一次取消就被通知两遍（日志刷两行、代理也白收一个包）。
+ * 所以 {@link #begin} 按管线判重：这条管线在本次聊天里没跑过 = 新的一次聊天，才换记录。
  */
 public final class VmessageSuppress extends JavaPlugin {
 
@@ -57,17 +63,25 @@ public final class VmessageSuppress extends JavaPlugin {
         } catch (final Throwable ignored) {
             // 非 Paper：只有旧事件可用，上面那个监听器已经够了
         }
-        getLogger().info("[VmessageSuppress] 已启用：被取消的聊天会通知代理（通道 " + CHANNEL + "）");
-        getLogger().info("[VmessageSuppress] 聊天事件："
+        // 日志前缀不用手写：Bukkit 的 PluginLogger 会自动加 [VmessageSuppress]，再写一遍就重了。
+        getLogger().info("已启用：被取消的聊天会通知代理（通道 " + CHANNEL + "）");
+        getLogger().info("聊天事件："
                 + (modern ? "新版 AsyncChatEvent + 旧版 AsyncPlayerChatEvent 两条都听"
                           : "只有旧版 AsyncPlayerChatEvent（非 Paper 服务端）"));
     }
 
     /** 最早的优先级：存下原文。万一中途有别插件改写过，我们发给代理的仍是玩家真正输入的那串。 */
-    void begin(final Player p, final String text, final String from) {
+    void begin(final Player p, final String text, final Pipe pipe) {
         purge();
-        states.put(p.getUniqueId(), new State(text));
-        debug("记录原文（" + from + "）：" + p.getName() + " → " + text);
+        final State s = states.get(p.getUniqueId());
+        if (s != null && s.started.add(pipe)) {
+            // 同一次聊天的第二条管线：沿用已有记录，保住「已通知过」这个标记，只把原文兜个底
+            s.text = text;
+            debug("记录原文（" + pipe + "，沿用本次聊天的记录）：" + p.getName() + " → " + text);
+            return;
+        }
+        states.put(p.getUniqueId(), new State(text, pipe));
+        debug("记录原文（" + pipe + "）：" + p.getName() + " → " + text);
     }
 
     /**
@@ -76,24 +90,24 @@ public final class VmessageSuppress extends JavaPlugin {
      * <p>⚠️ 没被取消时【不要】删掉记录：旧事件可能在新事件之前跑完，那时还没人来得及取消。
      * 留着，等另一条管线跑完之后发现「被取消了」时还能拿到原文。
      */
-    void end(final Player p, final boolean cancelled, final String fallback, final String from) {
+    void end(final Player p, final boolean cancelled, final String fallback, final Pipe pipe) {
         if (!cancelled) {
-            debug(from + " 结束时未被取消：" + p.getName());
+            debug(pipe + " 结束时未被取消：" + p.getName());
             return;
         }
         final State s = states.get(p.getUniqueId());
         if (s != null) {
             if (s.signalled) {
-                debug(from + " 结束时已取消，但同一条已经通知过代理了，跳过");
+                debug(pipe + " 结束时已取消，但同一条已经通知过代理了，跳过");
                 return;
             }
             s.signalled = true;
         }
-        send(p, s != null ? s.text : fallback, from);
+        send(p, s != null ? s.text : fallback, pipe);
     }
 
     /** 直接发，不排到主线程 —— 代理那边有个几十毫秒的窗口在等，多一个 tick 就可能错过。 */
-    private void send(final Player p, final String message, final String from) {
+    private void send(final Player p, final String message, final Pipe pipe) {
         try {
             final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             final DataOutputStream out = new DataOutputStream(buffer);
@@ -101,16 +115,16 @@ public final class VmessageSuppress extends JavaPlugin {
             out.writeUTF(message);
             out.flush();
             p.sendPluginMessage(this, CHANNEL, buffer.toByteArray());
-            getLogger().info("[VmessageSuppress] 已通知代理（" + from + "）："
+            getLogger().info("已通知代理（" + pipe + "）："
                     + p.getName() + " 的「" + message + "」被子服取消了");
         } catch (final Exception ex) {
-            getLogger().warning("[VmessageSuppress] 抑制信号发送失败：" + ex);
+            getLogger().warning("抑制信号发送失败：" + ex);
         }
     }
 
     private void debug(final String message) {
         if (getConfig().getBoolean("debug", false)) {
-            getLogger().info("[VmessageSuppress] " + message);
+            getLogger().info(message);
         }
     }
 
@@ -142,15 +156,34 @@ public final class VmessageSuppress extends JavaPlugin {
         }
     }
 
+    /** 两条聊天管线，日志里要显示来源，所以各带一个中文名。 */
+    private enum Pipe {
+        LEGACY("旧事件"),
+        MODERN("新事件");
+
+        private final String label;
+
+        Pipe(final String label) {
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
     /** 一次聊天的过程状态。 */
     private static final class State {
-        private final String text;
-        private final long created;
-        private boolean signalled;
+        private String text;
+        private final long created = System.currentTimeMillis();
+        /** 本次聊天里已跑过 begin 的管线 —— 用来区分「同一次聊天的第二条管线」和「下一条聊天」。 */
+        private final EnumSet<Pipe> started = EnumSet.noneOf(Pipe.class);
+        private volatile boolean signalled;
 
-        private State(final String text) {
+        private State(final String text, final Pipe pipe) {
             this.text = text;
-            this.created = System.currentTimeMillis();
+            this.started.add(pipe);
         }
     }
 
@@ -158,12 +191,12 @@ public final class VmessageSuppress extends JavaPlugin {
     private final class LegacyListener implements Listener {
         @EventHandler(priority = EventPriority.LOWEST)
         public void onBegin(final AsyncPlayerChatEvent e) {
-            begin(e.getPlayer(), e.getMessage(), "旧事件");
+            begin(e.getPlayer(), e.getMessage(), Pipe.LEGACY);
         }
 
         @EventHandler(priority = EventPriority.MONITOR)
         public void onEnd(final AsyncPlayerChatEvent e) {
-            end(e.getPlayer(), e.isCancelled(), e.getMessage(), "旧事件");
+            end(e.getPlayer(), e.isCancelled(), e.getMessage(), Pipe.LEGACY);
         }
     }
 
@@ -179,12 +212,12 @@ public final class VmessageSuppress extends JavaPlugin {
     private final class ModernListener implements Listener {
         @EventHandler(priority = EventPriority.LOWEST)
         public void onBegin(final io.papermc.paper.event.player.AsyncChatEvent e) {
-            begin(e.getPlayer(), plain(e.message()), "新事件");
+            begin(e.getPlayer(), plain(e.message()), Pipe.MODERN);
         }
 
         @EventHandler(priority = EventPriority.MONITOR)
         public void onEnd(final io.papermc.paper.event.player.AsyncChatEvent e) {
-            end(e.getPlayer(), e.isCancelled(), plain(e.message()), "新事件");
+            end(e.getPlayer(), e.isCancelled(), plain(e.message()), Pipe.MODERN);
         }
     }
 }
