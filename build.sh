@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键构建 VmessageSuppress-1.1.1.jar
+# 一键构建 VmessageSuppress-1.1.2.jar
 #
 # 为什么不用 Maven：本项目只有一个类、只依赖 Bukkit API，引入 Maven 反而要联网拉插件
 # （本机 ~/.m2 是离线的），直接 javac + jar 就够了。
@@ -73,9 +73,9 @@ echo "编译（--release 17，兼容 1.17+ 服务端）..."
 
 cp src/main/resources/plugin.yml src/main/resources/config.yml out/
 
-"$JDK/bin/jar" cf target/VmessageSuppress-1.1.1.jar -C out .
+"$JDK/bin/jar" cf target/VmessageSuppress-1.1.2.jar -C out .
 
 rm -rf "$TMP"
 echo
-echo "产物：target/VmessageSuppress-1.1.1.jar"
-"$JDK/bin/jar" tf target/VmessageSuppress-1.1.1.jar
+echo "产物：target/VmessageSuppress-1.1.2.jar"
+"$JDK/bin/jar" tf target/VmessageSuppress-1.1.2.jar
